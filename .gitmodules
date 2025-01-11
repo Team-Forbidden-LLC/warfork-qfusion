@@ -28,3 +28,6 @@
 [submodule "source/extern/curl"]
 	path = source/extern/curl
 	url = https://github.com/TeamForbiddenLLC/curl.git
+[submodule "source/extern/tracy"]
+	path = source/extern/tracy
+	url = https://github.com/wolfpld/tracy.git

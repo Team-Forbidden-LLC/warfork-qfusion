@@ -56,6 +56,7 @@ OPTION(USE_SYSTEM_OGG "Prefer system OGG instead of the bundled one" OFF)
 OPTION(USE_SYSTEM_FREETYPE "Prefer system freetype instead of the bundled one" OFF)
 OPTION(USE_SYSTEM_VORBIS "Prefer system vorbis instead of the bundled one" OFF)
 
+
 option(USE_PACKAGE_ASSETS "package assets" OFF)
 # We compile third-party libs from source
 
