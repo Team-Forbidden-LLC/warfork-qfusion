@@ -22,7 +22,7 @@ struct block_buffer_pool_s {
 	size_t alignmentReq;
 	size_t structureStride;
 	size_t blockSize;
-	NriBufferUsageBits usageBits;
+	uint16_t usageBits; // RIBufferUsage_e 
 
 	// the current buffer
 	struct block_buffer_s current;
@@ -33,7 +33,7 @@ struct block_buffer_pool_desc_s {
 	size_t blockSize;
 	size_t alignmentReq;
 	size_t structureStride;
-	NriBufferUsageBits usageBits;
+	uint16_t usageBits; // RIBufferUsage_e 
 };
 
 void InitBlockBufferPool( struct nri_backend_s *nri, struct block_buffer_pool_s *pool, const struct block_buffer_pool_desc_s *desc );

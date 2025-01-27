@@ -12,10 +12,12 @@
 
 #include "../gameshared/q_sds.h"
 
+#include "r_graphics.h"
 
 #include "qhash.h"
+#include "ri_format.h"
 
-#define POGO_BUFFER_TEXTURE_FORMAT NriFormat_RGBA8_UNORM
+#define POGO_BUFFER_TEXTURE_FORMAT RI_FORMAT_RGBA8_UNORM
 
 typedef struct mesh_vbo_s mesh_vbo_t;
 typedef struct mfog_s mfog_t;
@@ -104,9 +106,11 @@ struct frame_tex_buffers_s {
 	NriRect screen; 	
 	NriDescriptor *colorAttachment;
 	NriTexture *colorTexture;
-	
+
 	NriDescriptor *depthAttachment;
 	NriTexture* depthTexture;
+	
+	struct RITextureHandle_s* riDepthTexture;
 
 	// used for post processing
 	struct pogo_buffers_s {
@@ -136,6 +140,15 @@ struct ubo_frame_instance_s {
 };
 
 struct frame_cmd_buffer_s {
+
+  union {
+    #if(DEVICE_IMPL_VULKAN)
+    struct {
+    	VkCommandPool pool;
+    } vk;
+		#endif
+  };
+	struct RICmdHandle_s command;
 
 	uint64_t frameCount; // this value is bound by NUMBER_FRAMES_FLIGHT
 	struct block_buffer_pool_s uboBlockBuffer; 

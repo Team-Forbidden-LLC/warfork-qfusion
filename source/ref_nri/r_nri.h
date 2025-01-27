@@ -15,6 +15,8 @@
 #include "Extensions/NRISwapChain.h"
 #include "Extensions/NRIWrapperVK.h"
 
+#include "r_graphics.h"
+
 #include "vulkan/vulkan.h"
 
 const static NriSwapChainFormat DefaultSwapchainFormat = NriSwapChainFormat_BT709_G22_8BIT;
@@ -73,6 +75,8 @@ static const char *NriDescriptorTypeToString[NriDescriptorType_MAX_NUM] = { [Nri
 																			[NriDescriptorType_STRUCTURED_BUFFER] = "STRUCTURED_BUFFER",
 																			[NriDescriptorType_STORAGE_STRUCTURED_BUFFER] = "STORAGE_STRUCTURED_BUFFER",
 																			[NriDescriptorType_ACCELERATION_STRUCTURE] = "ACCELERATION_STRUCTURE" };
+
+
 
 // a wrapper to hold onto the hash + cookie
 struct nri_descriptor_s {

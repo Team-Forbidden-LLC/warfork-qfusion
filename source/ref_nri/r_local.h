@@ -39,6 +39,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_nri.h"
 #include "r_texture_buf.h"
 #include "../qcommon/mod_win.h"
+#include "r_graphics.h"
+#include "ri_resource_upload.h"
 
 typedef struct { char *name; void **funcPointer; } dllfunc_t;
 
@@ -304,11 +306,15 @@ typedef struct
 		};
 	} screenshot;
 
+	struct RISwapchain_s riSwapchain;
+
 	struct shadow_fb_s shadowFBs[NUMBER_FRAMES_FLIGHT][MAX_SHADOWGROUPS];	
 	struct portal_fb_s portalFBs[MAX_PORTAL_TEXTURES];
 	struct nri_descriptor_s shadowSamplerDescriptor;
 
  	struct nri_backend_s nri;
+ 	struct RIRenderer_s renderer;
+ 	struct RIDevice_s device;
 
 	uint64_t frameCount;
 	uint64_t swapchainCount;
@@ -317,6 +323,19 @@ typedef struct
 	NriFence* frameFence;
 	struct frame_tex_buffers_s* backBuffers;
 	struct frame_cmd_buffer_s frameCmds[NUMBER_FRAMES_FLIGHT];
+
+	union {
+#if ( DEVICE_IMPL_VULKAN )
+		struct {
+			VkImage depthImages[NUMBER_FRAMES_FLIGHT];	
+			VkImage pogo[NUMBER_FRAMES_FLIGHT * 2];
+
+			struct RIDescriptor_s depthAttachment[NUMBER_FRAMES_FLIGHT];
+			struct RIDescriptor_s colorAttachment[NUMBER_FRAMES_FLIGHT];
+			struct RIDescriptor_s pogoAttachment[NUMBER_FRAMES_FLIGHT * 2];
+		} vk;
+#endif
+	};
 
 	byte_vec4_t		customColors[NUM_CUSTOMCOLORS];
 } r_shared_t;
