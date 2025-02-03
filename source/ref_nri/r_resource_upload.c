@@ -5,6 +5,7 @@
 
 
 #include <assert.h>
+#include <vk_mem_alloc.h>
 
 #include "r_local.h"
 
@@ -39,6 +40,7 @@ typedef struct {
 	uint64_t byteOffset;
 	void *cpuMapping;
 } resource_stage_response_t;
+
 
 static NriBufferBarrierDesc* transitionBuffers = NULL; // buffers that need to be transitioned back to frame buffer
 static NriTextureBarrierDesc* transitionTextures = NULL; // textures that need to be transitioned back to frame buffer
@@ -303,7 +305,6 @@ void R_ResourceEndCopyTexture( texture_upload_desc_t *desc )
 			.access = NriAccessBits_COPY_DESTINATION, 
 			.stages = NriStageBits_COPY 
 		};
-;
 		transitionBarriers.texture = desc->target;
 		transitionBarriers.after = (NriAccessLayoutStage){	
 			.layout = NriLayout_COPY_DESTINATION, 

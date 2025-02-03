@@ -29,6 +29,7 @@ typedef uint64_t r_glslfeat_t;
 #include "r_vattribs.h"
 #include "r_resource.h"
 
+#include "r_descriptor_pool.h"
 
 #include "qhash.h"
 
@@ -208,6 +209,18 @@ typedef enum {
 } glsl_program_stage_t;
 
 struct glsl_program_s {
+	union {
+		struct {
+#if ( DEVICE_IMPL_VULKAN )
+			struct {
+				VkShaderStageFlags shaderStageFlags;
+				uint32_t size;
+			} pushConstant;
+			VkPipelineLayout pipelineLayout;	
+#endif
+		} vk;
+	};
+
 	char *name;
 	int type;
 	bool hasPushConstant;
@@ -225,22 +238,23 @@ struct glsl_program_s {
 	NriPipelineLayout *layout;
 	struct pipeline_hash_s {
 		uint64_t hash;
-		NriPipeline *pipeline;
+
+		union {
+#if ( DEVICE_IMPL_VULKAN )
+			struct {
+				VkPipeline handle;	
+			} vk;
+#endif
+		};
 	} pipelines[PIPELINE_LAYOUT_HASH_SIZE];
 
-	size_t numSets;
-	struct ProgramDescriptorInfo {
-		uint32_t registerSpace;
-		uint32_t setIndex;
-		struct descriptor_set_allloc_s *alloc;
-	} descriptorSetInfo[DESCRIPTOR_SET_MAX];
+	struct descriptor_set_allloc_s descriptorSetInfo[DESCRIPTOR_SET_MAX];
 
 	size_t numDescriptorReflections;
 	struct descriptor_reflection_s {
 		hash_t hash;
 		uint32_t isArray: 1;
 		uint32_t dimCount: 8;
-		uint32_t setIndex: 6;
 		uint32_t baseRegisterIndex : 16;
 		uint32_t rangeOffset : 16;
 	} descriptorReflection[PIPELINE_REFLECTION_HASH_SIZE];
@@ -265,6 +279,7 @@ struct glsl_descriptor_binding_s {
 };
 
 void RP_BindDescriptorSets(struct frame_cmd_buffer_s* cmd, struct glsl_program_s* program, struct glsl_descriptor_binding_s* data, size_t numDescriptorData);
+
 void RP_Init( void );
 void RP_Shutdown( void );
 void RP_PrecachePrograms( void );

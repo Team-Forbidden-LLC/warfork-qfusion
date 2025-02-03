@@ -47,6 +47,10 @@
 
 #include <stdint.h>
 
+#define KB_TO_BYTE (1024)
+#define MB_TO_BYTE (1024 * KB_TO_BYTE)
+#define GB_TO_BYTE (1024 * MB_TO_BYTE)
+
 #if INTPTR_MAX == 0x7FFFFFFFFFFFFFFFLL
   #define Q_PTR_SIZE 8
 #elif INTPTR_MAX == 0x7FFFFFFF
@@ -54,6 +58,9 @@
 #else
   #error unsupported platform
 #endif
+
+#define __Q_UNPAREN_UNWRAP(...) __VA_ARGS__
+#define Q_UNPAREN(args) __Q_UNPAREN_UNWRAP args
 
 #define Q_ALIGN_TO(size, alignment) (((size) + (alignment)-1) & ~((alignment)-1))
 #define Q_ARRAY_COUNT(array) (sizeof(array) / (sizeof(array[0]) * (sizeof(array) != Q_PTR_SIZE || sizeof(array[0]) <= Q_PTR_SIZE)))

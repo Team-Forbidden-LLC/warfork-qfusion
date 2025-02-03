@@ -289,9 +289,8 @@ static void R_DrawSkyBoxSide(struct frame_cmd_buffer_s* cmd, const skydome_t *sk
 	RB_BindShader( NULL, rsc.skyent, skyShader, fog );
 
 	cmd->state.numStreams = 1;
-	cmd->state.streams[0] = (NriVertexStreamDesc) {
+	cmd->state.streams[0] = (struct frame_cmd_vertex_stream_s ) {
 		.stride = skydome->linearVbos[side]->vertexSize,
-		.stepRate = 0,
 		.bindingSlot = 0
 	};
 	cmd->state.numAttribs = 0;
@@ -346,9 +345,8 @@ static void R_DrawBlackBottom( struct frame_cmd_buffer_s* cmd, const skydome_t *
 	RB_BindShader( NULL, rsc.skyent, rsh.envShader, fog );
 
 	cmd->state.numStreams = 1;
-	cmd->state.streams[0] = (NriVertexStreamDesc) {
+	cmd->state.streams[0] = (struct frame_cmd_vertex_stream_s ) {
 		.stride = skydome->linearVbos[side]->vertexSize,
-		.stepRate = 0,
 		.bindingSlot = 0
 	};
 	cmd->state.numAttribs = 0;
@@ -455,9 +453,8 @@ void R_DrawSkySurf( struct frame_cmd_buffer_s* cmd,const entity_t *e, const shad
 				RB_BindShader( NULL ,rsc.skyent, shader, NULL ); // must be called for every side to reset backend state
 
 				cmd->state.numStreams = 1;
-				cmd->state.streams[0] = (NriVertexStreamDesc) {
+				cmd->state.streams[0] = (struct frame_cmd_vertex_stream_s ) {
 					.stride = skydome->sphereVbos[i]->vertexSize,
-					.stepRate = 0,
 					.bindingSlot = 0
 				};
 				cmd->state.numAttribs = 0;

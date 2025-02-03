@@ -8,6 +8,8 @@
 #include "r_nri.h"
 
 #include "qhash.h"
+#include "ri_types.h"
+
 
 #define RESERVE_BLOCK_SIZE 1024
 #define ALLOC_HASH_RESERVE 256
@@ -23,16 +25,36 @@ struct descriptor_set_slot_s {
 	// hash
 	struct descriptor_set_slot_s *hNext;
 	struct descriptor_set_slot_s *hPrev;
+	union {
+#if ( DEVICE_IMPL_VULKAN )
+		struct {
+			VkDescriptorSet handle;
+		} vk;
+#endif
+	};
+};
 
-	NriDescriptorSet *descriptorSet;
+struct descriptor_pool_alloc_slot_s {
+		union {
+#if ( DEVICE_IMPL_VULKAN )
+			struct {
+				VkDescriptorPool handle;
+			} vk;
+#endif
+		};
+
 };
 
 struct descriptor_set_allloc_s {
 	// configuration for the allocator
-	const char* debugName;
 	struct {
-		//NriPipelineLayout *layout;
-		//uint32_t setIndex;
+		union {
+#if ( DEVICE_IMPL_VULKAN )
+			struct {
+				VkDescriptorSetLayout setLayout;
+			} vk;
+#endif
+		};
 		uint32_t samplerMaxNum;
 		uint32_t constantBufferMaxNum;
 		uint32_t dynamicConstantBufferMaxNum;
@@ -50,7 +72,7 @@ struct descriptor_set_allloc_s {
 	struct descriptor_set_slot_s *queueEnd;
 
 	struct descriptor_set_slot_s **reservedSlots;
-	NriDescriptorPool **pools;
+	struct descriptor_pool_alloc_slot_s* pools;
 	struct descriptor_set_slot_s **blocks;
 	size_t blockIndex;
 };
@@ -60,7 +82,12 @@ struct descriptor_set_result_s {
 	struct NriDescriptorSet *set;
 };
 
-struct descriptor_set_result_s ResolveDescriptorSet( struct nri_backend_s *backend, struct frame_cmd_buffer_s *cmd, NriPipelineLayout* layout, uint32_t setIndex, struct descriptor_set_allloc_s *alloc, uint32_t hash );
+struct descriptor_set_result_s ResolveDescriptorSet( struct RIDevice_s *device,
+													 struct descriptor_set_allloc_s *alloc,
+													 struct frame_cmd_buffer_s *cmd,
+													 NriPipelineLayout *layout,
+													 uint32_t setIndex,
+													 uint32_t hash );
 void FreeDescriptorSetAlloc( struct nri_backend_s *backend, struct descriptor_set_allloc_s *alloc );
 
 struct descriptor_simple_serializer_s {

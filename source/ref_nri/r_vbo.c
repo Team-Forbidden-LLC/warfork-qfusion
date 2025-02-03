@@ -375,74 +375,74 @@ R_FillVertexBuffer_f( int, int, );
 	} while( 0 )
 
 
-void R_FillNriVertexAttribLayout(const struct vbo_layout_s* layout, NriVertexAttributeDesc* desc, size_t* numDesc) {
+void R_FillNriVertexAttribLayout(const struct vbo_layout_s* layout, struct frame_cmd_vertex_attrib_s * desc, size_t* numDesc) {
 	assert(layout);
-	desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+	desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 		.offset = 0, 
-		.format = ( layout->halfFloatAttribs & VATTRIB_POSITION_BIT ) ? NriFormat_RGBA16_SFLOAT : NriFormat_RGBA32_SFLOAT, 
+		.format = ( layout->halfFloatAttribs & VATTRIB_POSITION_BIT ) ? R_FORMAT_RGBA16_SFLOAT : R_FORMAT_RGBA32_SFLOAT, 
 		.vk = { VATTRIB_POSITION }, 
-		.d3d = {.semanticName = "POSITION", .semanticIndex = VATTRIB_POSITION  },
+		//.d3d = {.semanticName = "POSITION", .semanticIndex = VATTRIB_POSITION  },
 		.streamIndex = 0 };
 
 	if(  ( layout->vertexAttribs & VATTRIB_NORMAL_BIT ) ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+		desc[( *numDesc )++] = (  struct frame_cmd_vertex_attrib_s  ){
 			.offset = layout->normalsOffset, 
-			.format = ( layout->halfFloatAttribs & VATTRIB_NORMAL_BIT ) ? NriFormat_RGBA16_SFLOAT : NriFormat_RGBA32_SFLOAT, 
+			.format = ( layout->halfFloatAttribs & VATTRIB_NORMAL_BIT ) ? R_FORMAT_RGBA16_SFLOAT : R_FORMAT_RGBA32_SFLOAT, 
 			.vk = { VATTRIB_NORMAL }, 
-			.d3d = {.semanticName = "NORMAL", .semanticIndex = VATTRIB_NORMAL   },
+		//	.d3d = {.semanticName = "NORMAL", .semanticIndex = VATTRIB_NORMAL   },
 			.streamIndex = 0 };
 	}
 	
 	if( layout->vertexAttribs & VATTRIB_SVECTOR_BIT ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+		desc[( *numDesc )++] = (  struct frame_cmd_vertex_attrib_s ){
 			.offset = layout->sVectorsOffset, 
-			.format = ( layout->halfFloatAttribs & VATTRIB_SVECTOR_BIT ) ? NriFormat_RGBA16_SFLOAT : NriFormat_RGBA32_SFLOAT, 
+			.format = ( layout->halfFloatAttribs & VATTRIB_SVECTOR_BIT ) ? R_FORMAT_RGBA16_SFLOAT : R_FORMAT_RGBA32_SFLOAT, 
 			.vk = { VATTRIB_SVECTOR }, 
-			.d3d = {.semanticName = "TANGENT", .semanticIndex = VATTRIB_SVECTOR   },
+		//	.d3d = {.semanticName = "TANGENT", .semanticIndex = VATTRIB_SVECTOR   },
 			.streamIndex = 0 };
 	}
 	
 	if( layout->vertexAttribs & VATTRIB_COLOR0_BIT ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+		desc[( *numDesc )++] = (  struct frame_cmd_vertex_attrib_s ){
 			.offset = layout->colorsOffset[0], 
-			.format = NriFormat_RGBA8_UNORM, 
+			.format = R_FORMAT_RGBA8_UNORM, 
 			.vk = { VATTRIB_COLOR0 }, 
-			.d3d = {.semanticName = "COLOR0", .semanticIndex = VATTRIB_COLOR0 },
+			//.d3d = {.semanticName = "COLOR0", .semanticIndex = VATTRIB_COLOR0 },
 			.streamIndex = 0 
 		};
 	}
 
 	if( ( layout->vertexAttribs & VATTRIB_TEXCOORDS_BIT ) ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+		desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 			.offset = layout->stOffset, 
-			.format = ( layout->halfFloatAttribs & VATTRIB_TEXCOORDS_BIT  ) ? NriFormat_RG16_SFLOAT : NriFormat_RG32_SFLOAT, 
+			.format = ( layout->halfFloatAttribs & VATTRIB_TEXCOORDS_BIT  ) ? R_FORMAT_RG16_SFLOAT : R_FORMAT_RG32_SFLOAT, 
 			.vk = { VATTRIB_TEXCOORDS }, 
-			.d3d = {.semanticName = "TEXCOORD0", .semanticIndex = VATTRIB_TEXCOORDS },
+		//	.d3d = {.semanticName = "TEXCOORD0", .semanticIndex = VATTRIB_TEXCOORDS },
 			.streamIndex = 0 };
 	}
 
 	if( (layout->vertexAttribs & VATTRIB_AUTOSPRITE_BIT) == VATTRIB_AUTOSPRITE_BIT ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+		desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 			.offset = layout->spritePointsOffset, 
-			.format = ( layout->halfFloatAttribs & VATTRIB_AUTOSPRITE_BIT  ) ? NriFormat_RGBA16_SFLOAT : NriFormat_RGBA32_SFLOAT, 
+			.format = ( layout->halfFloatAttribs & VATTRIB_AUTOSPRITE_BIT  ) ? R_FORMAT_RGBA16_SFLOAT : R_FORMAT_RGBA32_SFLOAT, 
 			.vk = { VATTRIB_SPRITEPOINT }, 
-			.d3d = {.semanticName = "TEXCOORD1", .semanticIndex = VATTRIB_SPRITEPOINT },
+		//	.d3d = {.semanticName = "TEXCOORD1", .semanticIndex = VATTRIB_SPRITEPOINT },
 			.streamIndex = 0 };
 	}
 	
 	if( (layout->vertexAttribs & VATTRIB_BONES_BITS) == VATTRIB_BONES_BITS ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+		desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 			.offset = layout->bonesIndicesOffset , 
-			.format = NriFormat_RGBA8_UINT, 
+			.format = R_FORMAT_RGBA8_UINT, 
 			.vk = { VATTRIB_BONESINDICES }, 
-			.d3d = {.semanticName = "TEXCOORD2", .semanticIndex = VATTRIB_BONESINDICES  },
+		//	.d3d = {.semanticName = "TEXCOORD2", .semanticIndex = VATTRIB_BONESINDICES  },
 			.streamIndex = 0 };
 		
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+		desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 			.offset = layout->bonesWeightsOffset , 
-			.format = NriFormat_RGBA8_UNORM, 
+			.format = R_FORMAT_RGBA8_UNORM, 
 			.vk = { VATTRIB_BONESWEIGHTS }, 
-			.d3d = {.semanticName = "TEXCOORD3", .semanticIndex = VATTRIB_BONESWEIGHTS  },
+		//	.d3d = {.semanticName = "TEXCOORD3", .semanticIndex = VATTRIB_BONESWEIGHTS  },
 			.streamIndex = 0 };
 
 	} else {
@@ -454,23 +454,23 @@ void R_FillNriVertexAttribLayout(const struct vbo_layout_s* layout, NriVertexAtt
 		for(size_t i = 0; i < ( MAX_LIGHTMAPS + 1 ) / 2; i++ ) {
 			if( layout->vertexAttribs & lmattrbit ) {
 
-				NriFormat format =  ( layout->halfFloatAttribs & VATTRIB_LMCOORDS0_BIT  ) ? NriFormat_R16_SFLOAT: NriFormat_R32_SFLOAT;
+				NriFormat format =  ( layout->halfFloatAttribs & VATTRIB_LMCOORDS0_BIT  ) ? R_FORMAT_R16_SFLOAT: R_FORMAT_R32_SFLOAT;
 				switch (layout->lmstSize[i]) {
 					case 2:
-						format =  ( layout->halfFloatAttribs & VATTRIB_LMCOORDS0_BIT  ) ? NriFormat_RG16_SFLOAT: NriFormat_RG32_SFLOAT;
+						format =  ( layout->halfFloatAttribs & VATTRIB_LMCOORDS0_BIT  ) ? R_FORMAT_RG16_SFLOAT: R_FORMAT_RG32_SFLOAT;
 						break;
 					case 4:
-						format =  ( layout->halfFloatAttribs & VATTRIB_LMCOORDS0_BIT  ) ? NriFormat_RGBA16_SFLOAT: NriFormat_RGBA32_SFLOAT;
+						format =  ( layout->halfFloatAttribs & VATTRIB_LMCOORDS0_BIT  ) ? R_FORMAT_RGBA16_SFLOAT: R_FORMAT_RGBA32_SFLOAT;
 						break;
 					default:
 						assert(false);
 						break;
 				}
-				desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+				desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 					.offset = layout->lmstOffset[i], 
 					.format = format, 
 					.vk = { lmattr }, 
-					.d3d = {.semanticName = "TEXCOORD4", .semanticIndex = lmattr  },
+		//			.d3d = {.semanticName = "TEXCOORD4", .semanticIndex = lmattr  },
 					.streamIndex = 0 
 				};
 			
@@ -482,11 +482,11 @@ void R_FillNriVertexAttribLayout(const struct vbo_layout_s* layout, NriVertexAtt
 
 		for(size_t i = 0; i < ( MAX_LIGHTMAPS + 3 ) / 4; i++ ) {
 			if( layout->vertexAttribs & ( VATTRIB_LMLAYERS0123_BIT << i ) ) {
-				desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+				desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 					.offset = layout->lmlayersOffset[i], 
-					.format = NriFormat_RGBA8_UINT, 
+					.format = R_FORMAT_RGBA8_UINT, 
 					.vk = { VATTRIB_LMLAYERS0123 }, 
-					.d3d = {.semanticName = "TEXCOORD5", .semanticIndex = lmattr  },
+		//			.d3d = {.semanticName = "TEXCOORD5", .semanticIndex = lmattr  },
 					.streamIndex = 0 
 				};
 			}
@@ -496,77 +496,68 @@ void R_FillNriVertexAttribLayout(const struct vbo_layout_s* layout, NriVertexAtt
 
 }
 
-void R_FillNriVertexAttrib(mesh_vbo_t* vbo, NriVertexAttributeDesc* desc, size_t* numDesc) {
-	desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
-		.offset = 0, 
-		.format = ( vbo->halfFloatAttribs & VATTRIB_POSITION_BIT ) ? NriFormat_RGBA16_SFLOAT : NriFormat_RGBA32_SFLOAT, 
-		.vk = { VATTRIB_POSITION }, 
-		.d3d = {.semanticName = "POSITION", .semanticIndex = VATTRIB_POSITION  },
-		.streamIndex = 0 };
+void R_FillNriVertexAttrib(mesh_vbo_t* vbo, struct frame_cmd_vertex_attrib_s * desc, size_t* numDesc) {
+	desc[( *numDesc )++] = (struct frame_cmd_vertex_attrib_s){ .offset = 0,
+															   .format = ( vbo->halfFloatAttribs & VATTRIB_POSITION_BIT ) ? RI_FORMAT_RGBA16_SFLOAT : RI_FORMAT_RGBA32_SFLOAT,
+															   .vk = { VATTRIB_POSITION },
+															   //.d3d = {.semanticName = "POSITION", .semanticIndex = VATTRIB_POSITION  },
+															   .streamIndex = 0 };
 
-	if(  ( vbo->vertexAttribs & VATTRIB_NORMAL_BIT ) ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
-			.offset = vbo->normalsOffset, 
-			.format = ( vbo->halfFloatAttribs & VATTRIB_NORMAL_BIT ) ? NriFormat_RGBA16_SFLOAT : NriFormat_RGBA32_SFLOAT, 
-			.vk = { VATTRIB_NORMAL }, 
-			.d3d = {.semanticName = "NORMAL", .semanticIndex = VATTRIB_NORMAL   },
-			.streamIndex = 0 };
+	if( ( vbo->vertexAttribs & VATTRIB_NORMAL_BIT ) ) {
+		desc[( *numDesc )++] = (struct frame_cmd_vertex_attrib_s){ .offset = vbo->normalsOffset,
+																   .format = ( vbo->halfFloatAttribs & VATTRIB_NORMAL_BIT ) ? RI_FORMAT_RGBA16_SFLOAT : RI_FORMAT_RGBA32_SFLOAT,
+																   .vk = { VATTRIB_NORMAL },
+																   //.d3d = {.semanticName = "NORMAL", .semanticIndex = VATTRIB_NORMAL   },
+																   .streamIndex = 0 };
 	}
-	
+
 	if( vbo->vertexAttribs & VATTRIB_SVECTOR_BIT ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
-			.offset = vbo->sVectorsOffset, 
-			.format = ( vbo->halfFloatAttribs & VATTRIB_SVECTOR_BIT ) ? NriFormat_RGBA16_SFLOAT : NriFormat_RGBA32_SFLOAT, 
-			.vk = { VATTRIB_SVECTOR }, 
-			.d3d = {.semanticName = "TANGENT", .semanticIndex = VATTRIB_SVECTOR   },
-			.streamIndex = 0 };
+		desc[( *numDesc )++] = (struct frame_cmd_vertex_attrib_s){ .offset = vbo->sVectorsOffset,
+																   .format = ( vbo->halfFloatAttribs & VATTRIB_SVECTOR_BIT ) ? RI_FORMAT_RGBA16_SFLOAT : RI_FORMAT_RGBA32_SFLOAT,
+																   .vk = { VATTRIB_SVECTOR },
+																   //.d3d = {.semanticName = "TANGENT", .semanticIndex = VATTRIB_SVECTOR   },
+																   .streamIndex = 0 };
 	}
-	
+
 	if( vbo->vertexAttribs & VATTRIB_COLOR0_BIT ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+		desc[( *numDesc )++] = (struct frame_cmd_vertex_attrib_s){
 			.offset = vbo->colorsOffset[0], 
-			.format = NriFormat_RGBA8_UNORM, 
+			.format = RI_FORMAT_RGBA8_UNORM, 
 			.vk = { VATTRIB_COLOR0 }, 
-			.d3d = {.semanticName = "COLOR0", .semanticIndex = VATTRIB_COLOR0 },
-			.streamIndex = 0 
-		};
+			//.d3d = { .semanticName = "COLOR0", .semanticIndex = VATTRIB_COLOR0 }, 
+			.streamIndex = 0 };
 	}
 
 	if( ( vbo->vertexAttribs & VATTRIB_TEXCOORDS_BIT ) ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
-			.offset = vbo->stOffset, 
-			.format = ( vbo->halfFloatAttribs & VATTRIB_TEXCOORDS_BIT  ) ? NriFormat_RG16_SFLOAT : NriFormat_RG32_SFLOAT, 
-			.vk = { VATTRIB_TEXCOORDS }, 
-			.d3d = {.semanticName = "TEXCOORD0", .semanticIndex = VATTRIB_TEXCOORDS },
-			.streamIndex = 0 };
+		desc[( *numDesc )++] = (struct frame_cmd_vertex_attrib_s){ .offset = vbo->stOffset,
+														 .format = ( vbo->halfFloatAttribs & VATTRIB_TEXCOORDS_BIT ) ? RI_FORMAT_RG16_SFLOAT : RI_FORMAT_RG32_SFLOAT,
+														 .vk = { VATTRIB_TEXCOORDS },
+														 //.d3d = { .semanticName = "TEXCOORD0", .semanticIndex = VATTRIB_TEXCOORDS },
+														 .streamIndex = 0 };
 	}
 
-	if( (vbo->vertexAttribs & VATTRIB_AUTOSPRITE_BIT) == VATTRIB_AUTOSPRITE_BIT ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
-			.offset = vbo->spritePointsOffset, 
-			.format = ( vbo->halfFloatAttribs & VATTRIB_AUTOSPRITE_BIT  ) ? NriFormat_RGBA16_SFLOAT : NriFormat_RGBA32_SFLOAT, 
-			.vk = { VATTRIB_SPRITEPOINT }, 
-			.d3d = {.semanticName = "TEXCOORD1", .semanticIndex = VATTRIB_SPRITEPOINT },
-			.streamIndex = 0 };
+	if( ( vbo->vertexAttribs & VATTRIB_AUTOSPRITE_BIT ) == VATTRIB_AUTOSPRITE_BIT ) {
+		desc[( *numDesc )++] = (struct frame_cmd_vertex_attrib_s){ .offset = vbo->spritePointsOffset,
+														 .format = ( vbo->halfFloatAttribs & VATTRIB_AUTOSPRITE_BIT ) ? RI_FORMAT_RGBA16_SFLOAT : RI_FORMAT_RGBA32_SFLOAT,
+														 .vk = { VATTRIB_SPRITEPOINT },
+														 //.d3d = { .semanticName = "TEXCOORD1", .semanticIndex = VATTRIB_SPRITEPOINT },
+														 .streamIndex = 0 };
 	}
-	
-	if( (vbo->vertexAttribs & VATTRIB_BONES_BITS) == VATTRIB_BONES_BITS ) {
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
-			.offset = vbo->bonesIndicesOffset , 
-			.format = NriFormat_RGBA8_UINT, 
-			.vk = { VATTRIB_BONESINDICES }, 
-			.d3d = {.semanticName = "TEXCOORD2", .semanticIndex = VATTRIB_BONESINDICES  },
-			.streamIndex = 0 };
-		
-		desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
-			.offset = vbo->bonesWeightsOffset , 
-			.format = NriFormat_RGBA8_UNORM, 
-			.vk = { VATTRIB_BONESWEIGHTS }, 
-			.d3d = {.semanticName = "TEXCOORD3", .semanticIndex = VATTRIB_BONESWEIGHTS  },
-			.streamIndex = 0 };
+
+	if( ( vbo->vertexAttribs & VATTRIB_BONES_BITS ) == VATTRIB_BONES_BITS ) {
+		desc[( *numDesc )++] = (struct frame_cmd_vertex_attrib_s){ .offset = vbo->bonesIndicesOffset,
+														 .format = RI_FORMAT_RGBA8_UINT,
+														 .vk = { VATTRIB_BONESINDICES },
+														 //.d3d = { .semanticName = "TEXCOORD2", .semanticIndex = VATTRIB_BONESINDICES },
+														 .streamIndex = 0 };
+
+		desc[( *numDesc )++] = (struct frame_cmd_vertex_attrib_s){ .offset = vbo->bonesWeightsOffset,
+														 .format = NriFormat_RGBA8_UNORM,
+														 .vk = { VATTRIB_BONESWEIGHTS },
+														 //.d3d = { .semanticName = "TEXCOORD3", .semanticIndex = VATTRIB_BONESWEIGHTS },
+														 .streamIndex = 0 };
 
 	} else {
-
 		// lightmap texture coordinates - aliasing bones, so not disabling bones
 		vattrib_t lmattr = VATTRIB_LMCOORDS01;
 		vattribbit_t lmattrbit = VATTRIB_LMCOORDS0_BIT;
@@ -586,11 +577,11 @@ void R_FillNriVertexAttrib(mesh_vbo_t* vbo, NriVertexAttributeDesc* desc, size_t
 						assert(false);
 						break;
 				}
-				desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+				desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 					.offset = vbo->lmstOffset[i], 
 					.format = format, 
 					.vk = { lmattr }, 
-					.d3d = {.semanticName = "TEXCOORD4", .semanticIndex = lmattr  },
+					//.d3d = {.semanticName = "TEXCOORD4", .semanticIndex = lmattr  },
 					.streamIndex = 0 
 				};
 			
@@ -602,18 +593,16 @@ void R_FillNriVertexAttrib(mesh_vbo_t* vbo, NriVertexAttributeDesc* desc, size_t
 
 		for(size_t i = 0; i < ( MAX_LIGHTMAPS + 3 ) / 4; i++ ) {
 			if( vbo->vertexAttribs & ( VATTRIB_LMLAYERS0123_BIT << i ) ) {
-				desc[( *numDesc )++] = ( NriVertexAttributeDesc ){
+				desc[( *numDesc )++] = ( struct frame_cmd_vertex_attrib_s ){
 					.offset = vbo->lmlayersOffset[i], 
 					.format = NriFormat_RGBA8_UINT, 
 					.vk = { VATTRIB_LMLAYERS0123 }, 
-					.d3d = {.semanticName = "TEXCOORD5", .semanticIndex = lmattr  },
+				//	.d3d = {.semanticName = "TEXCOORD5", .semanticIndex = lmattr  },
 					.streamIndex = 0 
 				};
 			}
 		}
-
 	}
-
 }
 
 struct vbo_layout_s R_CreateVBOLayout( vattribmask_t vattribs, vattribmask_t halfFloatVattribs)

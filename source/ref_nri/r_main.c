@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "r_local.h"
+#include "ri_types.h"
 
 
 r_globals_t rf;
@@ -484,7 +485,7 @@ void R_Set2DMode(struct frame_cmd_buffer_s* cmd, bool enable )
 		RB_Scissor( 0, 0, width, height );
 
 		FR_CmdSetViewportAll( cmd, 
-											 (NriViewport){ 
+											 (struct RIViewport_s){ 
 											 .x = 0, 
 											 .y = 0, 
 											 .width = width, 
@@ -492,7 +493,7 @@ void R_Set2DMode(struct frame_cmd_buffer_s* cmd, bool enable )
 											 .depthMin = 0.0f, 
 											 .depthMax = 1.0f } );
 		FR_CmdSetScissorAll( cmd, 
-											 (NriRect){ 
+											 (struct RIRect_s){ 
 											 .x = 0, 
 											 .y = 0, 
 											 .width = width, 
@@ -1003,7 +1004,7 @@ static void R_Clear(struct frame_cmd_buffer_s* frame, int bitMask  /* unused var
 static void R_SetupGL(struct frame_cmd_buffer_s* frame)
 {
 	RB_Scissor( rn.scissor[0], rn.scissor[1], rn.scissor[2], rn.scissor[3] );
-	FR_CmdSetViewportAll(frame, (NriViewport) {
+	FR_CmdSetViewportAll(frame, (struct RIViewport_s) {
 		.x = rn.viewport[0],
 		.y = rn.viewport[1],
 		.width = rn.viewport[2],

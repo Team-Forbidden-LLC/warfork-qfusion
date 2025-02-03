@@ -15,6 +15,8 @@
 #include "Extensions/NRISwapChain.h"
 #include "Extensions/NRIWrapperVK.h"
 
+#include "r_graphics.h"
+
 #include "vulkan/vulkan.h"
 
 const static NriSwapChainFormat DefaultSwapchainFormat = NriSwapChainFormat_BT709_G22_8BIT;
@@ -25,6 +27,7 @@ const static uint32_t UBOBlockerBufferSize = 256 * 128;
 const static uint32_t UBOBlockerBufferAlignmentReq = 256;
 
 #define NUMBER_FRAMES_FLIGHT 3
+#define NUMBER_SUBFRAMES_FLIGHT 64 
 #define NUMBER_RESERVED_BACKBUFFERS 4
 #define DESCRIPTOR_MAX_BINDINGS 32
 #define MAX_COLOR_ATTACHMENTS 8 
@@ -73,6 +76,8 @@ static const char *NriDescriptorTypeToString[NriDescriptorType_MAX_NUM] = { [Nri
 																			[NriDescriptorType_STRUCTURED_BUFFER] = "STRUCTURED_BUFFER",
 																			[NriDescriptorType_STORAGE_STRUCTURED_BUFFER] = "STORAGE_STRUCTURED_BUFFER",
 																			[NriDescriptorType_ACCELERATION_STRUCTURE] = "ACCELERATION_STRUCTURE" };
+
+
 
 // a wrapper to hold onto the hash + cookie
 struct nri_descriptor_s {

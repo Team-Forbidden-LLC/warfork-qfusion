@@ -39,6 +39,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_nri.h"
 #include "r_texture_buf.h"
 #include "../qcommon/mod_win.h"
+#include "r_graphics.h"
+#include "ri_resource_upload.h"
+#include "ri_scratch_alloc.h"
+#include "ri_pogoBuffer.h"
 
 typedef struct { char *name; void **funcPointer; } dllfunc_t;
 
@@ -250,6 +254,39 @@ enum capture_state_e {
 	CAPTURE_STATE_FINISH_ENV
 };
 
+enum r_frame_free_list_e {
+	R_FRAME_FREE_VK_CMD,
+	R_FRAME_FREE_VK_IMAGE,
+	R_FRAME_FREE_VK_VMA_AllOC,
+};
+
+struct r_frame_free_list_s {
+	uint16_t type; // enum r_frame_free_list_e
+	union {
+#if ( DEVICE_IMPL_VULKAN )
+		VkCommandBuffer vkCmdBuffer;
+		VkImage vkImage;
+		struct VmaAllocator_t *vmaAlloc;
+#endif
+	};
+};
+
+struct r_frame_set_s {
+	struct RIScratchAlloc_s uboScratchAlloc;
+	union {
+#if ( DEVICE_IMPL_VULKAN )
+		struct {
+				VkCommandPool pool;
+				VkCommandBuffer primaryBuffer;
+				uint32_t numSecondary;
+				VkCommandBuffer secondary[NUMBER_SUBFRAMES_FLIGHT]; // secondary views
+				struct r_frame_free_list_s *freeList;
+		} vk;
+#endif
+	};
+};
+
+
 
 // globals shared by the frontend and the backend
 // the backend should never attempt modifying any of these
@@ -304,19 +341,47 @@ typedef struct
 		};
 	} screenshot;
 
+	struct RISwapchain_s riSwapchain;
+
 	struct shadow_fb_s shadowFBs[NUMBER_FRAMES_FLIGHT][MAX_SHADOWGROUPS];	
 	struct portal_fb_s portalFBs[MAX_PORTAL_TEXTURES];
 	struct nri_descriptor_s shadowSamplerDescriptor;
 
  	struct nri_backend_s nri;
+ 	struct RIRenderer_s renderer;
+ 	struct RIDevice_s device;
 
-	uint64_t frameCount;
-	uint64_t swapchainCount;
  	NriCommandQueue* cmdQueue;
  	NriSwapChain* swapchain;
 	NriFence* frameFence;
 	struct frame_tex_buffers_s* backBuffers;
-	struct frame_cmd_buffer_s frameCmds[NUMBER_FRAMES_FLIGHT];
+	struct frame_cmd_buffer_s primaryCmd;
+	
+	union {
+#if ( DEVICE_IMPL_VULKAN )
+		struct {
+			uint32_t swapchainIndex;
+			VkSemaphore frameSemaphore;	
+			VkImage depthImages[RI_MAX_SWAPCHAIN_IMAGES];	
+			VkImage pogo[RI_MAX_SWAPCHAIN_IMAGES * 2];
+		 // struct {
+		 // 	VkCommandPool pool;
+		 // 	VkCommandBuffer primaryBuffer;
+		 // 	uint32_t numSecondary;
+		 // 	VkCommandBuffer secondary[NUMBER_SUBFRAMES_FLIGHT]; // secondary views
+		 // } frameSets[NUMBER_FRAMES_FLIGHT];
+		} vk;
+#endif
+	};
+	struct RIDescriptor_s colorAttachment[RI_MAX_SWAPCHAIN_IMAGES];
+	struct RIDescriptor_s depthAttachment[RI_MAX_SWAPCHAIN_IMAGES];
+	struct RI_PogoBuffer pogoBuffer[RI_MAX_SWAPCHAIN_IMAGES];
+	
+	uint64_t frameSetCount;
+	struct r_frame_set_s frameSets[NUMBER_FRAMES_FLIGHT];
+
+	//struct RIScratchAlloc_s uboFrameScratchAlloc[NUMBER_FRAMES_FLIGHT]; 	
+	
 
 	byte_vec4_t		customColors[NUM_CUSTOMCOLORS];
 } r_shared_t;
@@ -524,6 +589,10 @@ extern cvar_t *gl_cull;
 extern cvar_t *vid_displayfrequency;
 extern cvar_t *vid_multiscreen_head;
 
+#if(DEVICE_IMPL_VULKAN)
+void R_VK_CmdBeginRenderingBackBuffer( struct RIDevice_s *device, VkCommandBuffer cmd, bool attachAndClear);
+void R_VK_CmdBeginRenderingPogo( struct RIDevice_s *device, VkCommandBuffer cmd);
+#endif
 
 //
 // r_alias.c
@@ -573,30 +642,6 @@ bool	R_VisCullBox( const vec3_t mins, const vec3_t maxs );
 bool	R_VisCullSphere( const vec3_t origin, float radius );
 int			R_CullModelEntity( const entity_t *e, vec3_t mins, vec3_t maxs, float radius, bool sphereCull, bool pvsCull );
 bool	R_CullSpriteEntity( const entity_t *e );
-
-////
-//// r_framebuffer.c
-////
-//enum
-//{
-//	FBO_COPY_NORMAL = 0,
-//	FBO_COPY_CENTREPOS = 1,
-//	FBO_COPY_INVERT_Y = 2
-//};
-//
-//void		RFB_Init( void );
-//int			RFB_RegisterObject( int width, int height, bool builtin, bool depthRB, bool stencilRB );
-//void		RFB_UnregisterObject( int object );
-//void		RFB_TouchObject( int object );
-//void		RFB_BindObject( int object );
-//int			RFB_BoundObject( void );
-//void		RFB_AttachTextureToObject( int object, image_t *texture );
-//image_t		*RFB_GetObjectTextureAttachment( int object, bool depth );
-//void		RFB_BlitObject( int dest, int bitMask, int mode );
-//bool	RFB_CheckObjectStatus( void );
-//void		RFB_GetObjectSize( int object, int *width, int *height );
-//void		RFB_FreeUnusedObjects( void );
-//void		RFB_Shutdown( void );
 
 //
 // r_light.c
@@ -770,7 +815,7 @@ void R_AddEntityToScene( const entity_t *ent );
 void R_AddLightToScene( const vec3_t org, float intensity, float r, float g, float b );
 void R_AddPolyToScene( const poly_t *poly );
 void R_AddLightStyleToScene( int style, float r, float g, float b );
-void R_RenderScene(struct frame_cmd_buffer_s* cmd, const refdef_t *fd );
+void R_RenderScene(const refdef_t *fd );
 
 //
 // r_surf.c
@@ -912,11 +957,11 @@ void		R_FreeVBOsByTag( vbo_tag_t tag );
 void		R_FreeUnusedVBOs( void );
 void 		R_ShutdownVBO( void );
 
-void R_FillNriVertexAttrib(mesh_vbo_t* vbo, NriVertexAttributeDesc* desc, size_t* numDesc);
+void R_FillNriVertexAttrib( mesh_vbo_t *vbo, struct frame_cmd_vertex_attrib_s *desc, size_t *numDesc );
 
 struct vbo_layout_s R_CreateVBOLayout( vattribmask_t vattribs, vattribmask_t halfFloatVattribs);
 vattribmask_t R_WriteMeshToVertexBuffer( const struct vbo_layout_s *layout, vattribmask_t vattribs, const mesh_t *mesh, void *dst );
-void R_FillNriVertexAttribLayout(const struct vbo_layout_s* layout, NriVertexAttributeDesc* desc, size_t* numDesc);
+void R_FillNriVertexAttribLayout( const struct vbo_layout_s *layout, struct frame_cmd_vertex_attrib_s *desc, size_t *numDesc );
 
 enum
 {
@@ -965,11 +1010,5 @@ typedef struct
 
 extern mapconfig_t	mapConfig;
 extern refinst_t	rn;
-
-static inline struct frame_cmd_buffer_s *R_ActiveFrameCmd()
-{
-	const uint32_t bufferedFrameIndex = rsh.swapchainCount % NUMBER_FRAMES_FLIGHT;
-	return &rsh.frameCmds[bufferedFrameIndex];
-}
 
 #endif // R_LOCAL_H

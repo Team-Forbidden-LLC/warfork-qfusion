@@ -9,6 +9,14 @@
 #include "stb_ds.h"
 #include "qhash.h"
 
+
+
+#if(DEVICE_IMPL_VULKAN)
+	void FR_VK_CmdBeginRenderingBackBuffer(struct RIDevice_s *device, struct frame_cmd_buffer_s* frame);
+	void FR_VK_CmdBeginRenderingPogo(struct RIDevice_s *device, struct frame_cmd_buffer_s* frame,int pogoIndex);
+#endif
+
+
 void FR_CmdResetAttachmentToBackbuffer( struct frame_cmd_buffer_s *cmd )
 {
 	const NriTextureDesc *colorDesc = rsh.nri.coreI.GetTextureDesc( cmd->textureBuffers.colorTexture );
@@ -37,28 +45,28 @@ void FR_CmdResetCmdState( struct frame_cmd_buffer_s *cmd, enum CmdStateResetBits
 	cmd->state.dirtyVertexBuffers = 0;
 }
 
-void FR_CmdSetScissor( struct frame_cmd_buffer_s *cmd, const NriRect *scissors, size_t numAttachments )
+void FR_CmdSetScissor( struct frame_cmd_buffer_s *cmd, const struct RIRect_s *scissors, size_t numAttachments )
 {
 	assert( numAttachments < MAX_COLOR_ATTACHMENTS );
 	memcpy( cmd->state.scissors, scissors, sizeof( NriRect ) * numAttachments );
 	cmd->state.dirty |= CMD_DIRT_SCISSOR;
 }
 
-void FR_CmdSetScissorAll( struct frame_cmd_buffer_s *cmd, const NriRect scissors )
+void FR_CmdSetScissorAll( struct frame_cmd_buffer_s *cmd, const struct RIRect_s scissors )
 {
-	for( size_t i = 0; i < FR_CmdNumViewports(cmd); i++ ) {
+	for( size_t i = 0; i < FR_CmdNumViewports( cmd ); i++ ) {
 		assert( scissors.x >= 0 && scissors.y >= 0 );
 		cmd->state.scissors[i] = scissors;
 	}
 	cmd->state.dirty |= CMD_DIRT_SCISSOR;
 }
 
-void FR_CmdSetViewportAll( struct frame_cmd_buffer_s *cmd, const NriViewport viewport ) {
-	for( size_t i = 0; i < FR_CmdNumViewports(cmd); i++ ) {
+void FR_CmdSetViewportAll( struct frame_cmd_buffer_s *cmd, const struct RIViewport_s viewport )
+{
+	for( size_t i = 0; i < FR_CmdNumViewports( cmd ); i++ ) {
 		cmd->state.viewports[i] = viewport;
 	}
 	cmd->state.dirty |= CMD_DIRT_VIEWPORT;
-
 }
 
 void FR_CmdSetTextureAttachment( struct frame_cmd_buffer_s *cmd,
@@ -113,12 +121,12 @@ void FR_CmdResetCommandState( struct frame_cmd_buffer_s *cmd, enum CmdResetBits 
 		cmd->state.pipelineLayout.flippedViewport = false;
 		cmd->state.pipelineLayout.depthWrite = false;
 		cmd->state.pipelineLayout.blendEnabled = false;
-		cmd->state.pipelineLayout.cullMode = NriCullMode_FRONT;
-		cmd->state.pipelineLayout.depthBias = (NriDepthBiasDesc){0};
-		cmd->state.pipelineLayout.colorSrcFactor = NriBlendFactor_ONE;
-		cmd->state.pipelineLayout.colorDstFactor = NriBlendFactor_ZERO;
-		cmd->state.pipelineLayout.colorWriteMask = NriColorWriteBits_RGB;
-		cmd->state.pipelineLayout.compareFunc= NriCompareFunc_ALWAYS;
+		cmd->state.pipelineLayout.cullMode = RI_CULL_MODE_FRONT;
+		cmd->state.pipelineLayout.depthBias = (struct frame_pipeline_depth_bias_s ){0};
+		cmd->state.pipelineLayout.colorSrcFactor = RI_BLEND_ONE;
+		cmd->state.pipelineLayout.colorDstFactor = RI_BLEND_ZERO;
+		cmd->state.pipelineLayout.colorWriteMask = RI_COLOR_WRITE_RGB;
+		cmd->state.pipelineLayout.compareFunc= RI_COMPARE_ALWAYS;
 	}
 	
 }
@@ -184,7 +192,7 @@ void FrameCmdBufferFree(struct frame_cmd_buffer_s* cmd) {
 	arrfree(cmd->freeTextures);
 	arrfree(cmd->freeBuffers);
 	arrfree(cmd->frameTemporaryDesc);
-	BlockBufferPoolFree( &rsh.nri, &cmd->uboBlockBuffer );
+	FreeRIScratchAlloc( &rsh.nri, &cmd->uboBlockBuffer );
 	
 	memset( &cmd->uboSceneFrame, 0, sizeof( struct ubo_frame_instance_s ) );
 	memset( &cmd->uboSceneObject, 0, sizeof( struct ubo_frame_instance_s ) );
@@ -198,25 +206,19 @@ void FrameCmdBufferFree(struct frame_cmd_buffer_s* cmd) {
 }
 void ResetFrameCmdBuffer( struct nri_backend_s *backend, struct frame_cmd_buffer_s *cmd )
 {
+	const uint32_t swapchainIndex = RISwapchainAcquireNextTexture( &rsh.device, &rsh.riSwapchain );
+	//cmd->pogoAttachment[0] = &rsh.pogoAttachment[2 * swapchainIndex];
+	//cmd->pogoAttachment[1] = &rsh.pogoAttachment[( 2 * swapchainIndex ) + 1];
+	//cmd->colorAttachment = &rsh.colorAttachment[swapchainIndex];
+	//cmd->depthAttachment = &rsh.depthAttachment[swapchainIndex];
 	cmd->textureBuffers = rsh.backBuffers[rsh.nri.swapChainI.AcquireNextSwapChainTexture( rsh.swapchain )];
-	
-	for( size_t i = 0; i < arrlen( cmd->freeTextures ); i++ ) {
-		rsh.nri.coreI.DestroyTexture( cmd->freeTextures[i] );
-	}
-	for( size_t i = 0; i < arrlen( cmd->freeBuffers ); i++ ) {
-		rsh.nri.coreI.DestroyBuffer( cmd->freeBuffers[i] );
-	}
-	for( size_t i = 0; i < arrlen( cmd->freeMemory ); i++ ) {
-		rsh.nri.coreI.FreeMemory( cmd->freeMemory[i] );
-	}
-	for( size_t i = 0; i < arrlen( cmd->frameTemporaryDesc ); i++ ) {
-		backend->coreI.DestroyDescriptor( cmd->frameTemporaryDesc[i] );
-	}
+
+	// TODO: need to re-work this logic
 	arrsetlen( cmd->freeMemory, 0 );
 	arrsetlen( cmd->freeTextures, 0 );
 	arrsetlen( cmd->freeBuffers, 0 );
 	arrsetlen( cmd->frameTemporaryDesc, 0);
-	BlockBufferPoolReset( &cmd->uboBlockBuffer );
+	//RIResetScratchAlloc( &cmd->uboBlockBuffer );
 
 	memset( &cmd->uboSceneFrame, 0, sizeof( struct ubo_frame_instance_s ) );
 	memset( &cmd->uboSceneObject, 0, sizeof( struct ubo_frame_instance_s ) );

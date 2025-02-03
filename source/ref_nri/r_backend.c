@@ -505,7 +505,7 @@ void RB_FlushDynamicMeshes(struct frame_cmd_buffer_s* cmd)
 		R_FlushTransitionBarrier(cmd->cmd);
 	}
 
-	NriRect prevScissors[MAX_COLOR_ATTACHMENTS];
+	struct RIRect_s prevScissors[MAX_COLOR_ATTACHMENTS];
 	size_t numColorAttachments = cmd->state.numColorAttachments;
 	memcpy(prevScissors, cmd->state.scissors, sizeof(NriRect) * cmd->state.numColorAttachments); // keep a backup of the scissors
 
@@ -519,21 +519,23 @@ void RB_FlushDynamicMeshes(struct frame_cmd_buffer_s* cmd)
 		// rbDynamicStream_t *stream = &rb.dynamicStreams[draw->dynamicStreamIdx];
 		//struct dynamic_stream_info_s *info = &dynamicStreamInfo[draw->dynamicStreamIdx];
 		cmd->state.numStreams = 1;
-		cmd->state.streams[0] = ( NriVertexStreamDesc ){ .stride = draw->layout->vertexStride, .stepRate = 0, .bindingSlot = 0 };
+		cmd->state.streams[0] = ( struct frame_cmd_vertex_stream_s ){ 
+			.stride = draw->layout->vertexStride, 
+			.bindingSlot = 0 };
 		cmd->state.numAttribs = 0;
 		switch( draw->primitive ) {
 			case GL_LINES:
-				cmd->state.pipelineLayout.topology = NriTopology_LINE_LIST;
+				cmd->state.pipelineLayout.topology = RI_TOPOLOGY_LINE_LIST;
 				break;
 			default:
-				cmd->state.pipelineLayout.topology = NriTopology_TRIANGLE_LIST;
+				cmd->state.pipelineLayout.topology = RI_TOPOLOGY_TRIANGLE_LIST;
 				break;
 		}
 		R_FillNriVertexAttribLayout(draw->layout, cmd->state.attribs, &cmd->state.numAttribs);	
 		RB_BindShader( cmd, draw->entity, draw->shader, draw->fog );
 		RB_SetPortalSurface( draw->portalSurface );
 		RB_SetShadowBits( draw->shadowBits );
-		FR_CmdSetScissorAll( cmd, ( NriRect ){ draw->scissor[0], draw->scissor[1], draw->scissor[2], draw->scissor[3] } );
+		FR_CmdSetScissorAll( cmd, ( struct RIRect_s){ draw->scissor[0], draw->scissor[1], draw->scissor[2], draw->scissor[3] } );
 		FR_CmdSetVertexBuffer( cmd, 0, draw->vertexBuffer, draw->bufferVertEleOffset * draw->layout->vertexStride);
 		FR_CmdSetIndexBuffer( cmd, draw->indexBuffer, draw->bufferIndexEleOffset * sizeof(uint16_t), NriIndexType_UINT16 );
 

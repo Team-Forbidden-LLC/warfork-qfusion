@@ -574,7 +574,7 @@ void RB_RenderMeshGLSLProgrammed( struct frame_cmd_buffer_s *cmd, const shaderpa
 		programFeatures |= GLSL_SHADER_COMMON_GREYSCALE;
 	}
 
-	NriDepthBiasDesc depthBiasDesc = {0};
+	struct frame_pipeline_depth_bias_s depthBiasDesc = {0};
 	if(((rb.currentShader->flags & SHADER_POLYGONOFFSET) > 0)) {
 		depthBiasDesc.slope = -1.3f;
 		depthBiasDesc.constant = -.3f;
@@ -1136,10 +1136,13 @@ void RB_RenderMeshGLSLProgrammed( struct frame_cmd_buffer_s *cmd, const shaderpa
 					.descriptor = cmd->uboSceneObject.descriptor, 
 					.handle = Create_DescriptorHandle( "obj" ) 
 				};
-
-				rsh.nri.coreI.CmdSetPipeline( cmd->cmd, pipeline->pipeline );
-				rsh.nri.coreI.CmdSetPipelineLayout( cmd->cmd, program->layout );
+				//rsh.nri.coreI.CmdSetPipeline( cmd->cmd, pipeline->pipeline );
+				GPU_VULKAN_BLOCK( ( &rsh.renderer ), ( {
+									  vkCmdBindPipeline( cmd->vk.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vk.handle );
+							} ) );
 				RP_BindDescriptorSets( cmd, program, descriptors, descriptorIndex );
+
+				//rsh.nri.coreI.CmdSetPipelineLayout( cmd->cmd, program->layout );
 				FR_CmdDrawElements(cmd, 
 					cmd->drawElements.numElems,
 					cmd->drawElements.numInstances,

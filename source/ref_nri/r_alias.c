@@ -601,9 +601,8 @@ void R_DrawAliasSurf(struct frame_cmd_buffer_s* cmd, const entity_t *e, const sh
 	{
 		// RB_BindVBO( aliasmesh->vbo->index, GL_TRIANGLES );
 		cmd->state.numStreams = 1;
-		cmd->state.streams[0] = (NriVertexStreamDesc) {
+		cmd->state.streams[0] = (struct frame_cmd_vertex_stream_s ) {
 			.stride = aliasmesh->vbo->vertexSize,
-			.stepRate = 0,
 			.bindingSlot = 0
 		};
 		cmd->state.numAttribs = 0;

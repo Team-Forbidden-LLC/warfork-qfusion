@@ -58,6 +58,16 @@ typedef struct {
 	NriAccessLayoutStage before;
 	NriAccessLayoutStage after;
 
+	union {
+#if ( DEVICE_IMPL_VULKAN )
+		struct {
+			VkImage image;
+    	struct VmaAllocation_T* vmaAlloc;
+		} vk;
+#endif
+
+	};
+
 	// https://github.com/microsoft/DirectXTex/wiki/Image
 	uint32_t sliceNum;
 	uint32_t rowPitch;

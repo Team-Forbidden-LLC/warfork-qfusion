@@ -83,9 +83,13 @@ static void DetachDescriptorSlot( struct descriptor_set_allloc_s *alloc, struct 
 	}
 }
 
-struct descriptor_set_result_s ResolveDescriptorSet( struct nri_backend_s *backend, struct frame_cmd_buffer_s *cmd, NriPipelineLayout* layout, uint32_t setIndex, struct descriptor_set_allloc_s *alloc, uint32_t hash )
+struct descriptor_set_result_s ResolveDescriptorSet( struct RIDevice_s *device,
+													 struct descriptor_set_allloc_s *alloc,
+													 struct frame_cmd_buffer_s *cmd,
+													 NriPipelineLayout *layout,
+													 uint32_t setIndex,
+													 uint32_t hash )
 {
-	NriDescriptorPool *descriptorPool = NULL;
 	struct descriptor_set_result_s result = { 0 };
 	const size_t hashIndex = hash % ALLOC_HASH_RESERVE;
 	for( struct descriptor_set_slot_s *c = alloc->hashSlots[hashIndex]; c; c = c->hNext ) {
@@ -133,27 +137,40 @@ struct descriptor_set_result_s ResolveDescriptorSet( struct nri_backend_s *backe
 	}
 
 	if( arrlen( alloc->reservedSlots ) == 0 ) {
-		const NriDescriptorPoolDesc poolDesc = { .descriptorSetMaxNum = DESCRIPTOR_MAX_SIZE,
-												 .samplerMaxNum = alloc->config.samplerMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .constantBufferMaxNum = alloc->config.constantBufferMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .dynamicConstantBufferMaxNum = alloc->config.dynamicConstantBufferMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .textureMaxNum = alloc->config.textureMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .storageTextureMaxNum = alloc->config.storageTextureMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .bufferMaxNum = alloc->config.bufferMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .storageBufferMaxNum = alloc->config.storageBufferMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .structuredBufferMaxNum = alloc->config.structuredBufferMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .storageStructuredBufferMaxNum = alloc->config.storageStructuredBufferMaxNum * DESCRIPTOR_MAX_SIZE,
-												 .accelerationStructureMaxNum = alloc->config.accelerationStructureMaxNum * DESCRIPTOR_MAX_SIZE };
-		NRI_ABORT_ON_FAILURE( backend->coreI.CreateDescriptorPool( backend->device, &poolDesc, &descriptorPool ) );
-		NriDescriptorSet* sets[DESCRIPTOR_MAX_SIZE];
-		backend->coreI.AllocateDescriptorSets( descriptorPool, layout, setIndex, sets, DESCRIPTOR_MAX_SIZE, 0 );
-		arrpush(alloc->pools, descriptorPool);
-		for( size_t i = 0; i < DESCRIPTOR_MAX_SIZE; i++ ) {
-			struct descriptor_set_slot_s *slot = ReserveDescriptorSetSlot( alloc );
-			assert(sets[i]);
-			slot->descriptorSet = sets[i];
-			arrpush( alloc->reservedSlots, slot );
-		}
+		GPU_VULKAN_BLOCK( device->renderer, ( {
+			VkDescriptorPoolSize descriptorPoolSize[16] = {};
+			size_t descriptorPoolLen = 0;
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){ VK_DESCRIPTOR_TYPE_SAMPLER, alloc->config.samplerMaxNum * DESCRIPTOR_MAX_SIZE };
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, alloc->config.constantBufferMaxNum * DESCRIPTOR_MAX_SIZE };
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, alloc->config.dynamicConstantBufferMaxNum * DESCRIPTOR_MAX_SIZE };
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, alloc->config.textureMaxNum * DESCRIPTOR_MAX_SIZE };
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, alloc->config.storageTextureMaxNum * DESCRIPTOR_MAX_SIZE };
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, alloc->config.bufferMaxNum * DESCRIPTOR_MAX_SIZE };
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, alloc->config.storageBufferMaxNum * DESCRIPTOR_MAX_SIZE };
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){
+				VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, alloc->config.structuredBufferMaxNum * DESCRIPTOR_MAX_SIZE + alloc->config.storageStructuredBufferMaxNum * DESCRIPTOR_MAX_SIZE };
+			descriptorPoolSize[descriptorPoolLen++] = (VkDescriptorPoolSize){ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, alloc->config.accelerationStructureMaxNum * DESCRIPTOR_MAX_SIZE };
+			assert( descriptorPoolLen < Q_ARRAY_COUNT( descriptorPoolSize ) );
+			const VkDescriptorPoolCreateInfo info = {
+				VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, NULL, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, DESCRIPTOR_MAX_SIZE, descriptorPoolLen, descriptorPoolSize };
+			struct descriptor_pool_alloc_slot_s poolSlot = { 0 };
+			VK_WrapResult( vkCreateDescriptorPool( device->vk.device, &info, NULL, &poolSlot.vk.handle ) );
+
+			 NriDescriptorSet *sets[DESCRIPTOR_MAX_SIZE];
+			// backend->coreI.AllocateDescriptorSets( descriptorPool, layout, setIndex, sets, DESCRIPTOR_MAX_SIZE, 0 );
+			arrpush( alloc->pools, poolSlot);
+
+			for( size_t i = 0; i < DESCRIPTOR_MAX_SIZE; i++ ) {
+				struct descriptor_set_slot_s *slot = ReserveDescriptorSetSlot( alloc );
+    		VkDescriptorSetAllocateInfo info = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+    		info.pNext =  NULL;
+    		info.descriptorPool = poolSlot.vk.handle;
+    		info.descriptorSetCount = 1;
+    		info.pSetLayouts = &alloc->config.vk.setLayout;
+    		VK_WrapResult(vkAllocateDescriptorSets(device->vk.device, &info, &slot->vk.handle));
+				arrpush( alloc->reservedSlots, slot );
+			}
+		}));
 	}
 	struct descriptor_set_slot_s *slot = arrpop( alloc->reservedSlots );
 	slot->hash = hash;
@@ -161,7 +178,7 @@ struct descriptor_set_result_s ResolveDescriptorSet( struct nri_backend_s *backe
 
 	AttachDescriptorSlot( alloc, slot );
 	result.set = slot->descriptorSet;
-	backend->coreI.SetDescriptorSetDebugName(slot->descriptorSet, alloc->debugName);
+	//device->coreI.SetDescriptorSetDebugName(slot->descriptorSet, alloc->debugName);
 	result.found = false;
 	assert(result.set);
 	return result;

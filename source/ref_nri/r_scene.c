@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_program.h"
 #include "r_frame_cmd_buffer.h"
 
+#include "ri_types.h"
 #include "stb_ds.h"
 static void R_RenderDebugBounds(  struct frame_cmd_buffer_s* frame);
 
@@ -270,9 +271,10 @@ void __ColorCorrection_PostProcessing(const refdef_t* ref,struct frame_cmd_buffe
 }
 
 
-void R_RenderScene(struct frame_cmd_buffer_s* frame, const refdef_t *fd )
+//TODO: remove frame only bound to primary backbuffer
+void R_RenderScene(const refdef_t *fd )
 {
-	R_FlushTransitionBarrier(frame->cmd);
+	R_FlushTransitionBarrier(rsh.primaryCmd.cmd);
 
 	uint8_t pogoIndex = 0;
 	size_t numPostProcessing = 0;
@@ -282,7 +284,7 @@ void R_RenderScene(struct frame_cmd_buffer_s* frame, const refdef_t *fd )
 	if( r_norefresh->integer )
 		return;
 
-	R_Set2DMode(frame,  false );
+	R_Set2DMode(&rsh.primaryCmd,  false );
 
 	RB_SetTime( fd->time );
 
@@ -309,11 +311,11 @@ void R_RenderScene(struct frame_cmd_buffer_s* frame, const refdef_t *fd )
 	rn.shadowGroup = NULL;
 
 	rn.fbColorAttachment = rn.fbDepthAttachment = NULL;
-	rn.colorAttachment = rn.depthAttachment= NULL;
+	rn.colorAttachment = rn.depthAttachment = NULL;
 
 	if( !( fd->rdflags & RDF_NOWORLDMODEL ) ) {
 		if( r_soft_particles->integer && ( rsh.screenTexture != NULL ) ) {
-			rn.colorAttachment = frame->textureBuffers.colorAttachment;
+			rn.colorAttachment = rsh.primaryCmd.textureBuffers.colorAttachment;
 
 			rn.fbColorAttachment = rsh.screenTexture;
 			rn.fbDepthAttachment = rsh.screenDepthTexture;
@@ -337,13 +339,44 @@ void R_RenderScene(struct frame_cmd_buffer_s* frame, const refdef_t *fd )
 	VectorCopy( fd->vieworg, rn.pvsOrigin );
 	VectorCopy( fd->vieworg, rn.lodOrigin );
 
-	if(numPostProcessing > 0) {
-		FR_BindPogoBufferAttachment(frame, &frame->textureBuffers.pogoBuffers[pogoIndex]);
-	} else {
-		FR_CmdResetAttachmentToBackbuffer(frame);
-	}
+	GPU_VULKAN_BLOCK( ( &rsh.renderer ), ( {
+						  if( numPostProcessing > 0 ) {
+							  vkCmdEndRendering( rsh.primaryCmd.vk.cmd ); // end back buffer and swap to pogo attachment
+							  {
+								  VkRenderingAttachmentInfo colorAttachment = { VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+								  colorAttachment.imageView = RI_PogoBufferAttachment( rsh.pogoBuffer + rsh.vk.swapchainIndex )->vk.image.view;
+								  colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+								  colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+								  colorAttachment.resolveImageView = VK_NULL_HANDLE;
+								  colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+								  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+								  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-	FR_CmdSetViewportAll(frame, (NriViewport) {
+								  VkRenderingAttachmentInfo depthStencil = { VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+								  depthStencil.imageView = rsh.depthAttachment[rsh.vk.swapchainIndex].vk.image.view;
+								  depthStencil.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+								  depthStencil.resolveMode = VK_RESOLVE_MODE_NONE;
+								  depthStencil.resolveImageView = VK_NULL_HANDLE;
+								  depthStencil.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+								  depthStencil.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+								  depthStencil.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+								  depthStencil.clearValue.depthStencil.depth = 1.0f;
+
+								  VkRenderingInfo renderingInfo = { VK_STRUCTURE_TYPE_RENDERING_INFO };
+								  renderingInfo.flags = 0;
+								  renderingInfo.renderArea = (VkRect2D){ { 0, 0 }, { rsh.riSwapchain.width, rsh.riSwapchain.height } };
+								  renderingInfo.layerCount = 1;
+								  renderingInfo.viewMask = 0;
+								  renderingInfo.colorAttachmentCount = 1;
+								  renderingInfo.pColorAttachments = &colorAttachment;
+								  renderingInfo.pDepthAttachment = &depthStencil;
+								  renderingInfo.pStencilAttachment = NULL;
+								  vkCmdBeginRendering( rsh.primaryCmd.vk.cmd, &renderingInfo );
+							  }
+						  }
+					  } ) );
+
+	FR_CmdSetViewportAll(&rsh.primaryCmd, (struct RIViewport_s) {
 		.x = fd->x,
 		.y = fd->y,
 		.width = fd->width,
@@ -351,7 +384,7 @@ void R_RenderScene(struct frame_cmd_buffer_s* frame, const refdef_t *fd )
 		.depthMin = 0.0f,
 		.depthMax = 1.0f
 	} );
-	FR_CmdSetScissorAll(frame, (NriRect) {
+	FR_CmdSetScissorAll(&rsh.primaryCmd, (struct RIRect_s) {
 		.x = fd->scissor_x,
 		.y =  fd->scissor_y,
 		.width = fd->scissor_width,
@@ -360,48 +393,70 @@ void R_RenderScene(struct frame_cmd_buffer_s* frame, const refdef_t *fd )
 
 	R_BuildShadowGroups();
 
-	R_RenderView(frame, fd );
+	R_RenderView(&rsh.primaryCmd, fd );
 
 	R_RenderDebugSurface( fd );
 
-	R_RenderDebugBounds(frame);
+	R_RenderDebugBounds(&rsh.primaryCmd);
 
 	if( !( fd->rdflags & RDF_NOWORLDMODEL ) ) {
 		ri.Mutex_Lock( rf.speedsMsgLock );
 		R_WriteSpeedsMessage( rf.speedsMsg, sizeof( rf.speedsMsg ) );
 		ri.Mutex_Unlock( rf.speedsMsgLock );
 	}
-		
-	if(numPostProcessing > 0) {
-		for(size_t i = 0; i < numPostProcessing - 1; i++) {
-			struct pogo_buffers_s* src = &frame->textureBuffers.pogoBuffers[pogoIndex]; 
-			pogoIndex = (pogoIndex + 1) % 2;
-			struct pogo_buffers_s* dest = &frame->textureBuffers.pogoBuffers[pogoIndex]; 
-		
-			TransitionPogoBufferToShaderResource(frame, src);
-			FR_BindPogoBufferAttachment(frame, dest);
 
-			FR_CmdResetCommandState(frame, CMD_RESET_DEFAULT_PIPELINE_LAYOUT);
-			FR_CmdBeginRendering(frame);	
-			postProcessingHandlers[i](
-				fd,
-				frame,
-				src->shaderDescriptor
-			);
-			FR_CmdEndRendering(frame);
-		}
-		struct pogo_buffers_s* src = &frame->textureBuffers.pogoBuffers[pogoIndex]; 
-		TransitionPogoBufferToShaderResource(frame, src);
-		FR_CmdResetAttachmentToBackbuffer(frame);
-		
-		FR_CmdResetCommandState(frame, CMD_RESET_DEFAULT_PIPELINE_LAYOUT | CMD_RESET_VERTEX_BUFFER );
-		FR_CmdBeginRendering(frame);	
-		postProcessingHandlers[numPostProcessing - 1](fd, frame, src->shaderDescriptor);
-		FR_CmdEndRendering(frame);
+	if( numPostProcessing > 0 ) {
+		GPU_VULKAN_BLOCK( ( &rsh.renderer ), ( {
+							  vkCmdEndRendering( rsh.primaryCmd.vk.cmd ); // end back buffer and swap to pogo attachment
+							  struct RICmdHandle_s cmd;
+							  cmd.vk.cmd = rsh.primaryCmd.vk.cmd;
+							  for( size_t i = 0; i < numPostProcessing - 1; i++ ) {
+								  RI_PogoBufferToggle( &rsh.device, rsh.pogoBuffer + rsh.vk.swapchainIndex, &cmd );
+								  {
+									  VkRenderingAttachmentInfo colorAttachment = { VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+									  colorAttachment.imageView = RI_PogoBufferAttachment( rsh.pogoBuffer + rsh.vk.swapchainIndex )->vk.image.view;
+									  colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+									  colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+									  colorAttachment.resolveImageView = VK_NULL_HANDLE;
+									  colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+									  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+									  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+									  VkRenderingAttachmentInfo depthStencil = { VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+									  depthStencil.imageView = rsh.depthAttachment[rsh.vk.swapchainIndex].vk.image.view;
+									  depthStencil.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+									  depthStencil.resolveMode = VK_RESOLVE_MODE_NONE;
+									  depthStencil.resolveImageView = VK_NULL_HANDLE;
+									  depthStencil.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+									  depthStencil.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+									  depthStencil.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+									  depthStencil.clearValue.depthStencil.depth = 1.0f;
+
+									  VkRenderingInfo renderingInfo = { VK_STRUCTURE_TYPE_RENDERING_INFO };
+									  renderingInfo.flags = 0;
+									  renderingInfo.renderArea = (VkRect2D){ { 0, 0 }, { rsh.riSwapchain.width, rsh.riSwapchain.height } };
+									  renderingInfo.layerCount = 1;
+									  renderingInfo.viewMask = 0;
+									  renderingInfo.colorAttachmentCount = 1;
+									  renderingInfo.pColorAttachments = &colorAttachment;
+									  renderingInfo.pDepthAttachment = &depthStencil;
+									  renderingInfo.pStencilAttachment = NULL;
+									  vkCmdBeginRendering( rsh.primaryCmd.vk.cmd, &renderingInfo );
+								  }
+								  FR_CmdResetCommandState( &rsh.primaryCmd, CMD_RESET_DEFAULT_PIPELINE_LAYOUT );
+								  vkCmdEndRendering( rsh.primaryCmd.vk.cmd ); // end back buffer and swap to pogo attachment
+							  }
+								RI_PogoBufferToggle( &rsh.device, rsh.pogoBuffer + rsh.vk.swapchainIndex, &cmd );
+							  FR_CmdResetCommandState( &rsh.primaryCmd, CMD_RESET_DEFAULT_PIPELINE_LAYOUT | CMD_RESET_VERTEX_BUFFER );
+							
+								// reset back to back buffer
+								R_VK_CmdBeginRenderingBackBuffer(&rsh.device, rsh.primaryCmd.vk.cmd, true);
+							//	postProcessingHandlers[numPostProcessing - 1](fd, frame, src->shaderDescriptor);
+						  } ) );
 	}
-	FR_CmdResetAttachmentToBackbuffer(frame);
+	//FR_CmdResetAttachmentToBackbuffer( frame );
 
-	R_Set2DMode(frame, true );
+	R_Set2DMode(&rsh.primaryCmd, true );
 }
 
 void R_AddDebugBounds( const vec3_t mins, const vec3_t maxs, const byte_vec4_t color )
